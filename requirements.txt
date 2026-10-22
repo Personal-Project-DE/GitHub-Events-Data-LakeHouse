@@ -1,0 +1,13 @@
+# Core Processing (Pinned for Apache Spark 3.5.3 + Iceberg 1.6.1)
+pyspark==3.5.3
+pyiceberg==0.7.1
+boto3==1.35.45
+requests==2.32.3
+python-dotenv==1.0.1
+
+# Trino Client
+trino==0.330.0
+
+# Code Quality & Tests
+pytest==8.3.3
+ruff==0.8.0

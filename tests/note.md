@@ -1,0 +1,1 @@
+python -c "import gzip; open('\fixtures\landing\2024-01-01-0.json.gz','wb').write(gzip.open('\fixtures\landing\2024-01-01-0.json.gz','rb').read())"
