@@ -1,0 +1,36 @@
+# Environment files
+.env
+.env.local
+
+# Python & Virtualenv
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+
+# Spark & Metastore local artifacts
+spark-warehouse/
+metastore_db/
+derby.log
+*.log
+spark/jars/*.jar
+
+# Data landing downloads
+data/
+2024-01-01-0.json
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+
+
+#Document and result report
+planning/
+docs/
