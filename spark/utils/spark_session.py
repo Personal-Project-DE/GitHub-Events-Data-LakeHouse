@@ -31,7 +31,7 @@ def get_spark_session(app_name: str = "GitHubEventsLakehouse") -> SparkSession:
     )
 
     access_key = os.getenv("AWS_ACCESS_KEY_ID", "admin")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "password123")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "admin123")
     warehouse = os.getenv("ICEBERG_WAREHOUSE_LOCATION", "s3a://lakehouse/warehouse")
 
     # Pinned versions for Iceberg runtime and AWS integration
