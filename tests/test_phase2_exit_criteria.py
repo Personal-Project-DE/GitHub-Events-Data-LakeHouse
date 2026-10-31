@@ -34,7 +34,7 @@ def get_trino_cursor(schema: str = "gold"):
         cursor.execute("SELECT 1")
         cursor.fetchall()
         return cursor
-    except (trino.exceptions.Error, OSError) as exc:
+    except (trino.exceptions.TrinoConnectionError, OSError) as exc:
         pytest.skip(
             f"Trino service is not accessible ({exc}); skipping live integration test."
         )
@@ -112,3 +112,16 @@ def test_phase2_exit_criteria_trino():
         assert len(fact_dups) == 0, (
             f"Duplicate event_id found in silver.{fact_table}: {fact_dups}"
         )
+
+    # 4. Repo metadata language rule: No null or empty primary_language
+    cursor.execute(
+        """
+        SELECT repo_id
+        FROM iceberg.silver.repo_metadata
+        WHERE primary_language IS NULL OR TRIM(primary_language) = ''
+        """
+    )
+    metadata_nulls = cursor.fetchall()
+    assert len(metadata_nulls) == 0, (
+        f"Null or empty primary_language found in silver.repo_metadata: {metadata_nulls}"
+    )
