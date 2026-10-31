@@ -1,12 +1,25 @@
 import os
+import socket
 
 import pytest
 
 import trino
 
 
+def is_port_open(host: str, port: int, timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def get_trino_cursor(schema: str = "bronze"):
     trino_port = int(os.getenv("TRINO_PORT", "8082"))
+    if not is_port_open("localhost", trino_port):
+        pytest.skip(
+            f"Trino service is not accessible on localhost:{trino_port}; skipping live integration test."
+        )
     try:
         conn = trino.dbapi.connect(
             host="localhost",

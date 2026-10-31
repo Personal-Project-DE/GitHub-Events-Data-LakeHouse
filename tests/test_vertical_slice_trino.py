@@ -1,10 +1,20 @@
 import os
+import socket
 from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv
 
 import trino
+
+
+def is_port_open(host: str, port: int, timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
 
 # Load .env
 env_path = Path(__file__).resolve().parents[1] / ".env"
@@ -14,6 +24,10 @@ if env_path.exists():
 
 def test_trino_query_proof_table():
     trino_port = int(os.getenv("TRINO_PORT", "8082"))
+    if not is_port_open("localhost", trino_port):
+        pytest.skip(
+            f"Trino service is not accessible on localhost:{trino_port}; skipping live integration test."
+        )
     try:
         conn = trino.dbapi.connect(
             host="localhost",
