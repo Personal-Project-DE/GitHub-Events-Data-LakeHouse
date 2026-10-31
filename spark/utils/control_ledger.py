@@ -74,6 +74,7 @@ def acquire_run_lock(
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")  # noqa: UP017
 
+    # Upsert control record via MERGE INTO
     merge_sql = f"""
     MERGE INTO iceberg.control.ingestion_runs AS target
     USING (
