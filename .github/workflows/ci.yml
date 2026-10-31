@@ -29,7 +29,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Ruff
-        run: pip install ruff==0.8.0
+        run: pip install ruff==0.17.1
 
       - name: Run Ruff Lint Check
         run: ruff check . --output-format=github
@@ -92,7 +92,9 @@ jobs:
           echo "Verified required environment variables are documented in .env.example."
 
       - name: Validate Docker Compose Configuration
-        run: docker compose config --quiet
+        run: |
+          cp .env.example .env 2>/dev/null || true
+          docker compose config --quiet
 
   ci-gate-approval:
     name: "Layer 4: CI Quality Gate Final Verification"
