@@ -1,0 +1,10 @@
+line-length = 88
+
+[lint]
+ignore = [
+    "E501",  # Line length handled by ruff format
+]
+
+[lint.per-file-ignores]
+# Standalone Spark submit jobs require sys.path modification before importing internal packages
+"spark/jobs/*" = ["E402"]

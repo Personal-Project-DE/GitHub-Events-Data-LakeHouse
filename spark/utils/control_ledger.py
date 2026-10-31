@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pyspark.sql import SparkSession
+if TYPE_CHECKING:
+    from pyspark.sql import SparkSession
 
 
 def ensure_control_table(spark: SparkSession) -> None:
@@ -53,7 +54,7 @@ def acquire_run_lock(
     """
     Acquires an ingestion lock for the source hour:
     - Enforces source version history: raises error if checksum changes without force.
-    - Enforces concurrency lock: raises error if another run is in BRONZE_PROCESSING without force.
+    - Enforces concurrency lock: raises error if another run is currently processing without force.
     - Upserts the control record with status 'BRONZE_PROCESSING'.
     """
     existing = get_ingestion_run(spark, source_hour)
@@ -64,10 +65,11 @@ def acquire_run_lock(
                 f"Existing checksum '{existing['source_checksum']}' does not match "
                 f"incoming checksum '{source_checksum}'. Reprocessing changed versions requires explicit force flag."
             )
-        if existing["status"] == "BRONZE_PROCESSING" and not force:
+        active_statuses = {"BRONZE_PROCESSING", "SILVER_PROCESSING", "GOLD_PROCESSING"}
+        if existing["status"] in active_statuses and not force:
             raise RuntimeError(
-                f"Concurrency conflict: source_hour '{source_hour}' is currently locked and "
-                f"being processed by run_id '{existing['run_id']}' started at {existing['started_at']}."
+                f"Concurrency conflict: source_hour '{source_hour}' is currently locked with status "
+                f"'{existing['status']}' by run_id '{existing['run_id']}' started at {existing['started_at']}."
             )
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")  # noqa: UP017
@@ -112,6 +114,36 @@ def acquire_run_lock(
         )
     """
     spark.sql(merge_sql)
+
+
+def advance_run_status(
+    spark: SparkSession,
+    source_hour: str,
+    run_id: str,
+    new_status: str,
+    error_message: str | None = None,
+) -> None:
+    """Advances the status of the ingestion run in the control table."""
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")  # noqa: UP017
+    if error_message:
+        safe_msg = error_message.replace("'", "''")[:1000]
+        err_clause = f"error_message = '{safe_msg}'"
+    else:
+        err_clause = "error_message = NULL"
+
+    if new_status in ("GOLD_COMPLETE", "FAILED"):
+        completed_clause = f"completed_at = TIMESTAMP '{now_iso}'"
+    else:
+        completed_clause = "completed_at = completed_at"
+
+    update_sql = f"""
+    UPDATE iceberg.control.ingestion_runs
+    SET status = '{new_status}',
+        {completed_clause},
+        {err_clause}
+    WHERE source_hour = '{source_hour}' AND run_id = '{run_id}'
+    """
+    spark.sql(update_sql)
 
 
 def complete_run(
