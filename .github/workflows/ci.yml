@@ -87,7 +87,7 @@ jobs:
         run: |
           test -f .env.example || (echo "Missing .env.example" && exit 1)
           grep -q "MINIO_ENDPOINT" .env.example || (echo "MINIO_ENDPOINT missing from .env.example" && exit 1)
-          grep -q "SPARK_MASTER_URL" .env.example || (echo "SPARK_MASTER_URL missing from .env.example" && exit 1)
+          grep -q "SPARK_MASTER_PORT" .env.example || (echo "SPARK_MASTER_PORT missing from .env.example" && exit 1)
           grep -q "TRINO_PORT" .env.example || (echo "TRINO_PORT missing from .env.example" && exit 1)
           echo "Verified required environment variables are documented in .env.example."
 
