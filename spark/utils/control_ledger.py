@@ -141,7 +141,7 @@ def advance_run_status(
     SET status = '{new_status}',
         {completed_clause},
         {err_clause}
-    WHERE source_hour = '{source_hour}'
+    WHERE source_hour = '{source_hour}' AND run_id = '{run_id}'
     """
     spark.sql(update_sql)
 
