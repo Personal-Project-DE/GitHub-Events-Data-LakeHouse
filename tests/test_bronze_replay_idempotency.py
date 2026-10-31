@@ -32,7 +32,7 @@ def get_trino_cursor(schema: str = "bronze"):
         cursor.execute("SELECT 1")
         cursor.fetchall()
         return cursor
-    except (trino.exceptions.Error, OSError) as exc:
+    except (trino.exceptions.TrinoConnectionError, OSError) as exc:
         pytest.skip(
             f"Trino service is not accessible ({exc}); skipping live integration test."
         )
@@ -95,6 +95,14 @@ def test_bronze_replay_and_uniqueness():
     )
     ledger_rows = cursor.fetchall()
     assert len(ledger_rows) > 0, "Expected at least one run in control ledger"
+
+    # Assert exactly one control record for every ingested source_hour
+    ledger_hours = [row[0] for row in ledger_rows]
+    for source_hour, _, _ in results:
+        matching = [h for h in ledger_hours if h == source_hour]
+        assert len(matching) == 1, (
+            f"Expected exactly 1 control record for source_hour '{source_hour}', got {len(matching)}"
+        )
 
     completed_statuses = {
         "BRONZE_COMPLETE",

@@ -39,7 +39,7 @@ def test_trino_query_proof_table():
         cursor = conn.cursor()
         cursor.execute("SELECT 1")
         cursor.fetchall()
-    except (trino.exceptions.Error, OSError) as exc:
+    except (trino.exceptions.TrinoConnectionError, OSError) as exc:
         pytest.skip(
             f"Trino service is not accessible ({exc}); skipping live integration test."
         )
@@ -71,3 +71,10 @@ def test_trino_query_proof_table():
     )
     rows = cursor.fetchall()
     assert len(rows) > 0, "Expected at least 1 row from preview query"
+
+
+if __name__ == "__main__":
+    try:
+        test_trino_query_proof_table()
+    except pytest.skip.Exception as exc:
+        print(f"[SKIPPED] {exc}")

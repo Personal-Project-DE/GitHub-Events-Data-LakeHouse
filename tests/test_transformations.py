@@ -26,6 +26,8 @@ def test_bot_detector_version():
         ("codecov", True),
         ("my-service_bot", True),
         # Humans & false-positive defense
+        ("renovatefoo", False),
+        ("codecovx", False),
         ("torvalds", False),
         ("octocat", False),
         (
@@ -93,3 +95,15 @@ def test_fetch_repo_metadata_network_exception():
         assert res["primary_language"] == "unknown"
         assert "error" in res["source"]
         assert res["etag"] is None
+
+
+def test_bot_regex_spark_word_boundaries():
+    import re
+
+    from spark.utils.bot_detector import BOT_REGEX_SPARK
+
+    assert bool(re.search(BOT_REGEX_SPARK, "dependabot")) is True
+    assert bool(re.search(BOT_REGEX_SPARK, "renovate[bot]")) is True
+    assert bool(re.search(BOT_REGEX_SPARK, "user-bot")) is True
+    assert bool(re.search(BOT_REGEX_SPARK, "renovatefoo")) is False
+    assert bool(re.search(BOT_REGEX_SPARK, "codecovx")) is False
