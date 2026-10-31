@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import pytest
 from dotenv import load_dotenv
 
 import trino
@@ -13,16 +14,23 @@ if env_path.exists():
 
 def test_trino_query_proof_table():
     trino_port = int(os.getenv("TRINO_PORT", "8082"))
-    print(f"Connecting to Trino on localhost:{trino_port}...")
+    try:
+        conn = trino.dbapi.connect(
+            host="localhost",
+            port=trino_port,
+            user="admin",
+            catalog="iceberg",
+            schema="demo",
+        )
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchall()
+    except (trino.exceptions.Error, OSError) as exc:
+        pytest.skip(
+            f"Trino service is not accessible ({exc}); skipping live integration test."
+        )
 
-    conn = trino.dbapi.connect(
-        host="localhost",
-        port=trino_port,
-        user="admin",
-        catalog="iceberg",
-        schema="demo",
-    )
-    cursor = conn.cursor()
+    print(f"Connecting to Trino on localhost:{trino_port}...")
 
     # Verify tables
     cursor.execute("SHOW TABLES FROM iceberg.demo")
@@ -48,14 +56,4 @@ def test_trino_query_proof_table():
         "SELECT event_id, event_type, actor_login, repo_name, created_at FROM iceberg.demo.proof_events LIMIT 5"
     )
     rows = cursor.fetchall()
-    print("\nPreview 5 rows from Trino:")
-    for row in rows:
-        print(row)
-
-    print(
-        "\n--- Verification Passed: Trino successfully queried Iceberg proof table! ---"
-    )
-
-
-if __name__ == "__main__":
-    test_trino_query_proof_table()
+    assert len(rows) > 0, "Expected at least 1 row from preview query"
