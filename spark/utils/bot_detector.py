@@ -24,9 +24,7 @@ BOT_PATTERNS = [
 ]
 
 _COMPILED_PATTERN = re.compile("|".join(BOT_PATTERNS), re.IGNORECASE)
-BOT_REGEX_SPARK = (
-    r"(\[bot\]|-bot|_bot)$|dependabot|github-actions|renovate|greenkeeper|snyk|codecov"
-)
+BOT_REGEX_SPARK = r"(\[bot\]|-bot|_bot)$|\b(dependabot|github-actions|renovate|greenkeeper|snyk|codecov)\b"
 
 
 def is_bot_account(actor_login: str | None) -> bool:
