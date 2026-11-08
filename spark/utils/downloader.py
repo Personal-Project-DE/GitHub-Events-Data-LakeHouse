@@ -5,7 +5,12 @@ import gzip
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
 
 from spark.utils.path_utils import (
     compute_sha256,
@@ -25,9 +30,12 @@ try:
 except ImportError:
     requests = None
 
+import contextlib
+
 env_path = Path(__file__).resolve().parents[2] / ".env"
-if env_path.exists():
-    load_dotenv(dotenv_path=env_path)
+if env_path.exists() and "load_dotenv" in globals():
+    with contextlib.suppress(OSError):
+        load_dotenv(dotenv_path=env_path)
 
 
 def validate_gzipped_json(file_path: Path) -> int:
@@ -182,6 +190,11 @@ def main():
         "--no-s3",
         action="store_true",
         help="Skip uploading to MinIO S3",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-download and overwrite landing archive",
     )
     args = parser.parse_args()
 
