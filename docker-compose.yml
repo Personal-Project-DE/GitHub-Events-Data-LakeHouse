@@ -56,7 +56,7 @@ services:
       CATALOG_S3_ENDPOINT: http://minio:9000
       CATALOG_S3_PATH__STYLE__ACCESS: "true"
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-admin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-password123}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-admin123}
       AWS_REGION: ${AWS_REGION:-us-east-1}
     networks:
       - lakehouse-net
@@ -116,10 +116,120 @@ services:
     networks:
       - lakehouse-net
 
+  postgres:
+    image: postgres:17-alpine
+    container_name: lakehouse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER:-admin}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:-admin123}
+      POSTGRES_DB: ${AIRFLOW_DB_NAME:-airflow}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lakehouse-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIRFLOW_DB_USER:-admin} -d ${AIRFLOW_DB_NAME:-airflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  airflow-init:
+    image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.3.2}
+    container_name: lakehouse-airflow-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-admin}:${AIRFLOW_DB_PASSWORD:-admin123}@postgres:5432/${AIRFLOW_DB_NAME:-airflow}
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_USER:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_PASSWORD:-admin123}
+    networks:
+      - lakehouse-net
+    restart: "no"
+
+  airflow-webserver:
+    image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.3.2}
+    container_name: lakehouse-airflow-webserver
+    restart: unless-stopped
+    group_add:
+      - "0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-admin}:${AIRFLOW_DB_PASSWORD:-admin123}@postgres:5432/${AIRFLOW_DB_NAME:-airflow}
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-webserver:8080/execution/
+      AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:-lakehouse_jwt_secret_key_fixed_32_bytes_12345}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-lakehouse_secret_key_12345}
+      WORKSPACE_ROOT: /opt/spark/work-dir
+      MINIO_ENDPOINT: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-admin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-admin123}
+      REST_CATALOG_URI: http://iceberg-rest:8181
+      SPARK_MASTER_URL: spark://spark-master:7077
+    ports:
+      - "${AIRFLOW_PORT:-8085}:8080"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/simple_auth_manager_passwords.json.generated:/opt/airflow/simple_auth_manager_passwords.json.generated
+      - ./spark:/opt/spark/work-dir/spark
+      - ./tests:/opt/spark/work-dir/tests
+      - ./data:/opt/spark/work-dir/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: api-server
+    networks:
+      - lakehouse-net
+
+  airflow-scheduler:
+    image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.3.2}
+    container_name: lakehouse-airflow-scheduler
+    restart: unless-stopped
+    group_add:
+      - "0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-admin}:${AIRFLOW_DB_PASSWORD:-admin123}@postgres:5432/${AIRFLOW_DB_NAME:-airflow}
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-webserver:8080/execution/
+      AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:-lakehouse_jwt_secret_key_fixed_32_bytes_12345}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-lakehouse_secret_key_12345}
+      WORKSPACE_ROOT: /opt/spark/work-dir
+      MINIO_ENDPOINT: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-admin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-admin123}
+      REST_CATALOG_URI: http://iceberg-rest:8181
+      SPARK_MASTER_URL: spark://spark-master:7077
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/simple_auth_manager_passwords.json.generated:/opt/airflow/simple_auth_manager_passwords.json.generated
+      - ./spark:/opt/spark/work-dir/spark
+      - ./tests:/opt/spark/work-dir/tests
+      - ./data:/opt/spark/work-dir/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: scheduler
+    networks:
+      - lakehouse-net
+
 networks:
   lakehouse-net:
     driver: bridge
 
 volumes:
   minio_data:
+    driver: local
+  postgres_data:
     driver: local
