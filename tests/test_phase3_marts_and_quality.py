@@ -33,3 +33,32 @@ def test_quality_gate_error_exception():
     err = QualityGateError("Duplicate keys detected in gold mart")
     assert isinstance(err, Exception)
     assert str(err) == "Duplicate keys detected in gold mart"
+
+
+def test_check_repo_liveness_filters_404():
+    from unittest.mock import MagicMock, patch
+    from urllib.error import HTTPError
+
+    from spark.utils.enrichment import check_repo_liveness
+
+    def mock_urlopen(req, timeout=2.0):
+        url = req.full_url
+        if "notracking" in url or "eiention" in url:
+            raise HTTPError(url, 404, "Not Found", {}, None)
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        dead = check_repo_liveness(
+            [
+                "beideseasons/notracking",
+                "azalea-rs/azalea",
+                "wwwwwwworld/eiention",
+                "unknown",
+            ]
+        )
+        assert "beideseasons/notracking" in dead
+        assert "wwwwwwworld/eiention" in dead
+        assert "unknown" in dead
+        assert "azalea-rs/azalea" not in dead
