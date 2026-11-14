@@ -221,3 +221,51 @@ def enrich_repositories(
     )
 
     return len(records_to_upsert)
+
+
+def check_repo_liveness(
+    repo_names: list[str],
+    max_workers: int = 15,
+    timeout_sec: float = 2.0,
+) -> set[str]:
+    """
+    Checks HTTP accessibility of repo names concurrently using lightweight HEAD requests.
+    Returns a set of confirmed INACCESSIBLE (404/410/deleted) repository names.
+    """
+    import concurrent.futures
+    import urllib.error
+    import urllib.request
+
+    dead_repos: set[str] = set()
+    if not repo_names:
+        return dead_repos
+
+    def _probe(repo_name: str) -> tuple[str, bool]:
+        if not repo_name or "/" not in repo_name or repo_name == "unknown":
+            return repo_name, False
+        url = f"https://github.com/{repo_name}"
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+            method="HEAD",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+                # 200, 301, 302 mean the repo is alive / redirected
+                return repo_name, resp.status < 400
+        except urllib.error.HTTPError as http_err:
+            if http_err.code in (404, 410):
+                return repo_name, False
+            # 429 or 403 on github web: treat as alive to avoid false negative
+            return repo_name, True
+        except Exception:  # noqa: BLE001
+            # Network timeout / intermittent error: do not penalize
+            return repo_name, True
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = executor.map(_probe, repo_names)
+        for r_name, is_alive in results:
+            if not is_alive:
+                dead_repos.add(r_name)
+
+    return dead_repos

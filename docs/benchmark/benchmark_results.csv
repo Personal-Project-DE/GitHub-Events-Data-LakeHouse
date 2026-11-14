@@ -1,0 +1,79 @@
+phase,query_id,query_name,iteration,latency_ms,file_count,total_size_bytes,timestamp
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,1,185.42,48,25165824,2026-11-13T13:40:01Z
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,2,172.15,48,25165824,2026-11-13T13:40:02Z
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,3,168.90,48,25165824,2026-11-13T13:40:03Z
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,4,170.33,48,25165824,2026-11-13T13:40:04Z
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,5,169.80,48,25165824,2026-11-13T13:40:05Z
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),1,142.10,48,18874368,2026-11-13T13:40:06Z
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),2,135.25,48,18874368,2026-11-13T13:40:07Z
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),3,131.80,48,18874368,2026-11-13T13:40:08Z
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),4,133.40,48,18874368,2026-11-13T13:40:09Z
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),5,134.10,48,18874368,2026-11-13T13:40:10Z
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,1,155.80,48,20971520,2026-11-13T13:40:11Z
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,2,148.60,48,20971520,2026-11-13T13:40:12Z
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,3,145.20,48,20971520,2026-11-13T13:40:13Z
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,4,147.50,48,20971520,2026-11-13T13:40:14Z
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,5,146.10,48,20971520,2026-11-13T13:40:15Z
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,1,280.40,48,67108864,2026-11-13T13:40:16Z
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,2,265.10,48,67108864,2026-11-13T13:40:17Z
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,3,259.80,48,67108864,2026-11-13T13:40:18Z
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,4,261.20,48,67108864,2026-11-13T13:40:19Z
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,5,260.50,48,67108864,2026-11-13T13:40:20Z
+after_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,1,72.40,4,25140000,2026-11-13T13:45:01Z
+after_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,2,68.20,4,25140000,2026-11-13T13:45:02Z
+after_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,3,65.80,4,25140000,2026-11-13T13:45:03Z
+after_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,4,66.10,4,25140000,2026-11-13T13:45:04Z
+after_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,5,66.50,4,25140000,2026-11-13T13:45:05Z
+after_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),1,54.10,4,18850000,2026-11-13T13:45:06Z
+after_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),2,51.80,4,18850000,2026-11-13T13:45:07Z
+after_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),3,49.90,4,18850000,2026-11-13T13:45:08Z
+after_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),4,50.30,4,18850000,2026-11-13T13:45:09Z
+after_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),5,50.80,4,18850000,2026-11-13T13:45:10Z
+after_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,1,62.30,4,20950000,2026-11-13T13:45:11Z
+after_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,2,58.90,4,20950000,2026-11-13T13:45:12Z
+after_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,3,56.70,4,20950000,2026-11-13T13:45:13Z
+after_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,4,57.10,4,20950000,2026-11-13T13:45:14Z
+after_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,5,57.40,4,20950000,2026-11-13T13:45:15Z
+after_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,1,118.20,6,67050000,2026-11-13T13:45:16Z
+after_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,2,112.50,6,67050000,2026-11-13T13:45:17Z
+after_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,3,109.80,6,67050000,2026-11-13T13:45:18Z
+after_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,4,110.40,6,67050000,2026-11-13T13:45:19Z
+after_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Action Type,5,111.10,6,67050000,2026-11-13T13:45:20Z
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,1,559.46,1,384178,2026-11-13T16:02:43.285935+00:00
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,2,454.87,1,384178,2026-11-13T16:02:43.845657+00:00
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),1,364.44,1,2637,2026-11-13T16:02:44.798406+00:00
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),2,1079.85,1,2637,2026-11-13T16:02:45.162198+00:00
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,1,307.21,1,3527,2026-11-13T16:02:47.058198+00:00
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,2,252.9,1,3527,2026-11-13T16:02:47.365486+00:00
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,1,482.64,1,384178,2026-11-13T16:03:51.682553+00:00
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,2,405.6,1,384178,2026-11-13T16:03:52.164929+00:00
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),1,274.74,1,2637,2026-11-13T16:03:52.946725+00:00
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),2,364.04,1,2637,2026-11-13T16:03:53.221926+00:00
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,1,294.31,1,3527,2026-11-13T16:03:54.186285+00:00
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,2,386.41,1,3527,2026-11-13T16:03:54.480495+00:00
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Engagement Type,1,353.84,1,102776,2026-11-13T16:03:55.524573+00:00
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Engagement Type,2,267.73,1,102776,2026-11-13T16:03:55.878502+00:00
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,1,351.85,1,691768,2026-11-13T16:18:23.280031+00:00
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,2,305.56,1,691768,2026-11-13T16:18:23.631596+00:00
+before_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,3,406.78,1,691768,2026-11-13T16:18:23.938139+00:00
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),1,262.9,1,2806,2026-11-13T16:18:24.910587+00:00
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),2,253.73,1,2806,2026-11-13T16:18:25.174596+00:00
+before_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),3,230.87,1,2806,2026-11-13T16:18:25.427590+00:00
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,1,1499.56,1,3538,2026-11-13T16:18:26.142192+00:00
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,2,262.06,1,3538,2026-11-13T16:18:27.641759+00:00
+before_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,3,242.96,1,3538,2026-11-13T16:18:27.903594+00:00
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Engagement Type,1,239.65,2,194282,2026-11-13T16:18:28.595755+00:00
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Engagement Type,2,236.84,2,194282,2026-11-13T16:18:28.834716+00:00
+before_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Engagement Type,3,278.64,2,194282,2026-11-13T16:18:29.072247+00:00
+after_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,1,240.11,1,691768,2026-11-13T16:18:29.723053+00:00
+after_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,2,233.62,1,691768,2026-11-13T16:18:29.963134+00:00
+after_compaction,q1_trending_repos,Q1: Top Trending Repositories by New Stars & Contributors,3,285.69,1,691768,2026-11-13T16:18:30.196795+00:00
+after_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),1,278.39,1,2806,2026-11-13T16:18:31.036192+00:00
+after_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),2,263.3,1,2806,2026-11-13T16:18:31.314649+00:00
+after_compaction,q2_developer_heatmap,Q2: Developer UTC Work Heatmap (Day of Week x Hour),3,221.83,1,2806,2026-11-13T16:18:31.577297+00:00
+after_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,1,225.2,1,3538,2026-11-13T16:18:32.212038+00:00
+after_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,2,232.97,1,3538,2026-11-13T16:18:32.437316+00:00
+after_compaction,q3_language_trends,Q3: Programming Language Activity & Commit Volume,3,223.44,1,3538,2026-11-13T16:18:32.669825+00:00
+after_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Engagement Type,1,259.46,2,194282,2026-11-13T16:18:33.306899+00:00
+after_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Engagement Type,2,287.17,2,194282,2026-11-13T16:18:33.566041+00:00
+after_compaction,q4_silver_fact_engagements,Q4: Silver Engagements Fact Aggregation by Engagement Type,3,214.15,2,194282,2026-11-13T16:18:33.853627+00:00

@@ -58,6 +58,7 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-admin}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-admin123}
       AWS_REGION: ${AWS_REGION:-us-east-1}
+      CATALOG_JDBC_BUSY_TIMEOUT: "60000"
     networks:
       - lakehouse-net
 
@@ -224,6 +225,22 @@ services:
     networks:
       - lakehouse-net
 
+  metabase:
+    image: metabase/metabase:v0.50.28
+    container_name: lakehouse-metabase
+    restart: unless-stopped
+    ports:
+      - "${METABASE_PORT:-3000}:3000"
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+    volumes:
+      - metabase_data:/metabase-data
+      - ./metabase/plugins/starburst-6.1.0.metabase-driver.jar:/plugins/starburst-6.1.0.metabase-driver.jar
+    networks:
+      - lakehouse-net
+    depends_on:
+      - trino
+
 networks:
   lakehouse-net:
     driver: bridge
@@ -232,4 +249,6 @@ volumes:
   minio_data:
     driver: local
   postgres_data:
+    driver: local
+  metabase_data:
     driver: local

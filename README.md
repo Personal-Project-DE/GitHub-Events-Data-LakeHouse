@@ -1,10 +1,10 @@
 # GitHub Events Data Lakehouse
 
-An end-to-end local Data Lakehouse processing public GitHub Archive events using **PySpark, Apache Iceberg, MinIO, Trino, and Apache Airflow**.
+An end-to-end local Data Lakehouse processing public GitHub Archive events using **PySpark, Apache Iceberg, MinIO, Trino, Apache Airflow 3.3.2, and Metabase**.
 
 ---
 
-## Architecture & Tech Stack
+## 1. System Architecture & Tech Stack
 
 ```text
        +------------------------------------+
@@ -19,17 +19,25 @@ An end-to-end local Data Lakehouse processing public GitHub Archive events using
                          |
                          v
        +------------------------------------+
-       |         PySpark Processing         |
+       |   Apache Airflow 3.3.2 Scheduler   |
+       |    - Postgres 17 Metadata Store    |
+       |    - Multi-stage Quality Gates     |
+       +-----------------+------------------+
+                         |
+                         v
+       +------------------------------------+
+       |         PySpark 3.5.3 Engine       |
        |  - Bronze: Deduplicated Events     |
-       |  - Silver: Dims & Facts (SCD1)     |
-       |  - Gold: Daily Business Marts      |
+       |  - Silver: Dims (SCD1) & Facts     |
+       |  - Gold: 3 Daily Analytical Marts  |
+       |  - Maintenance: Compaction & Sort  |
        +--------+------------------+--------+
                 |                  |
       Metadata  |                  | Parquet Data
                 v                  v
 +-----------------------+  +------------------------+
 | Iceberg REST Catalog  |  |   MinIO Warehouse      |
-| (localhost:8181)      |  | (s3a://lakehouse/wh)   |
+| (port 8181)           |  | (s3a://lakehouse/wh)   |
 +-----------+-----------+  +-----------+------------+
             ^                          ^
             |  Metadata & Data Files   |
@@ -37,65 +45,232 @@ An end-to-end local Data Lakehouse processing public GitHub Archive events using
                           |
                           v
             +---------------------------+
-            |        Trino SQL          |
+            |      Trino 468 SQL        |
             |     (localhost:8082)      |
             +-------------+-------------+
                           |
                           v
             +---------------------------+
-            |         Metabase          |
+            |    Metabase (v0.50.28)    |
             |     (localhost:3000)      |
             +---------------------------+
 ```
 
-### Pinned Versions
+### Pinned Versions & Service Endpoints
 
-| Component | Pinned Version / Image | Role |
-|---|---|---|
-| **Object Storage** | `minio/minio:latest` | S3-compatible Landing & Iceberg Warehouse |
-| **Catalog** | `tabulario/iceberg-rest:0.7.0` | Apache Iceberg REST Catalog |
-| **Processing Engine** | `bitnami/spark:3.5.3` | PySpark 3.5.3 + Iceberg Spark Runtime 1.6.1 |
-| **Query Engine** | `trinodb/trino:468` | Distributed SQL Query Engine |
-| **Orchestration** | `apache/airflow:2.10.5-python3.10` | Pipeline Scheduling & Quality Gates |
-| **BI** | `metabase/metabase:latest` | Gold Marts Dashboards |
+| Component | Pinned Version / Docker Image | Local Port / Web UI | Role |
+|---|---|---|---|
+| **Object Storage** | `minio/minio:latest` | `9010` (S3 API), `9011` (Console) | S3-compatible Landing & Iceberg Warehouse |
+| **Catalog** | `tabulario/iceberg-rest:latest` | `8181` | Apache Iceberg REST Catalog |
+| **Processing Engine** | `apache/spark:3.5.3` | `7077` (Master), `8088` (Spark Web UI) | Distributed PySpark Transformations |
+| **Query Engine** | `trinodb/trino:468` | `8082` (Trino Web UI & JDBC) | Fast Distributed SQL Engine |
+| **Metadata DB** | `postgres:17-alpine` | `5432` | Metadata Database for Apache Airflow |
+| **Orchestration** | `apache/airflow:3.3.2` | `8085` (Airflow Web UI) | DAG Scheduling, Orchestration, Quality Gates |
+| **BI & Analytics** | `metabase/metabase:v0.50.28` | `3000` (Metabase UI) | Analytical Dashboards on Gold Marts |
 
 ---
 
-## Quickstart (Phase 0: Vertical Slice)
+## 2. Infrastructure & Storage Layer
+
+### 2.1 MinIO S3 Object Storage
+MinIO provides the S3-compatible storage layer partitioned into two primary namespaces:
+- `landing/`: Immutable temporary landing zone for raw `.json.gz` files from GH Archive (zero-footprint local cleanup).
+- `warehouse/`: Apache Iceberg tables storing columnar Parquet data files, manifest lists, and metadata snapshots.
+
+![MinIO Object Browser](docs/images/01_minio_storage_browser.png)
+*MinIO Object Browser displaying the `lakehouse` bucket with `landing/` and `warehouse/` directories.*
+
+---
+
+## 3. Medallion Data Model
+
+```text
+                        ┌──────────────────────────────────────────────┐
+                        │               LANDING LAYER                  │
+                        │       Immutable .json.gz raw archives        │
+                        └──────────────────────┬───────────────────────┘
+                                               │
+                                               ▼
+                        ┌──────────────────────────────────────────────┐
+                        │                BRONZE LAYER                  │
+                        │   iceberg.bronze.github_events               │
+                        │   Grain: event_id (deduplicated & merged)    │
+                        └──────────────────────┬───────────────────────┘
+                                               │
+                                               ▼
+                        ┌──────────────────────────────────────────────┐
+                        │                SILVER LAYER                  │
+                        │  - Dimensions: dim_users, dim_repositories   │
+                        │  - Metadata: repo_metadata (language cache)  │
+                        │  - Facts: fact_commits, fact_pull_requests,  │
+                        │           fact_engagements                   │
+                        └──────────────────────┬───────────────────────┘
+                                               │
+             ┌─────────────────────────────────┼─────────────────────────────────┐
+             ▼                                 ▼                                 ▼
+┌───────────────────────────────┐ ┌───────────────────────────────┐ ┌───────────────────────────────┐
+│ gold.mart_trending_repos_daily│ │gold.mart_language_trends_daily│ │mart_developer_work_patterns_..│
+│ Grain: (metric_date, repo_id) │ │ Grain: (metric_date, language)│ │Grain: (date, day_of_week, hr) │
+│ - new_stars_count             │ │ - active_repos_count          │ │ - commit_events_count         │
+│ - forks_count                 │ │ - distinct_human_contributors │ │ - pr_events_count             │
+│ - opened / merged_prs_count   │ │ - opened / merged_prs_count   │ │ - distinct_human_developers   │
+│ - distinct_human_contributors │ │ - commits_count               │ │ - total_events_count (No bots)│
+└───────────────────────────────┘ └───────────────────────────────┘ └───────────────────────────────┘
+```
+
+---
+
+## 4. Processing & Orchestration Engine
+
+### 4.1 Apache Spark Distributed Processing
+PySpark 3.5.3 handles heavy data transformations across all layers with Apache Iceberg ACID transactions, partition rewrites, and metadata maintenance jobs.
+
+![Spark Master Web UI](docs/images/03_spark_master_webui.png)
+*Spark Master Web UI (Spark 3.5.3) showing active cluster worker and completed Iceberg maintenance applications.*
+
+### 4.2 Apache Airflow 3.3.2 Pipeline Orchestration
+The primary DAG `github_events_lakehouse_pipeline` orchestrates the Medallion progression with strict serial execution (`max_active_runs=1`):
+
+1. **`resolve_pipeline_params`**: Evaluates execution date, target source hour, and force reprocessing flags.
+2. **`download_and_land`**: Fetches `.json.gz` from GH Archive with SHA-256 validation.
+3. **`bronze_ingestion`**: Deduplicates raw events and merges into `iceberg.bronze.github_events`.
+4. **`silver_transformation`**: Updates SCD-1 dimensions and populates fact tables with bot classification.
+5. **`gold_aggregation`**: Computes daily aggregations across all 3 Gold analytical marts.
+6. **`quality_gates_validation`**: Validates reconciliation, unique grains, and volume anomaly checks.
+
+![Airflow DAG Runs Overview](docs/images/05_airflow_dags_overview.png)
+*Apache Airflow DAGs Overview showing scheduled execution runs of `github_events_lakehouse_pipeline`.*
+
+![Airflow Task Instances Success](docs/images/04_airflow_task_instances_success.png)
+*Airflow 3 Task Instances View showing all 6 pipeline tasks completing with Success status.*
+
+---
+
+## 5. Interactive Querying & BI Dashboards
+
+### 5.1 Trino SQL Query Engine
+Trino 468 connects via the Apache Iceberg REST Catalog, providing low-latency distributed SQL query execution directly on MinIO S3 data without moving data out of the Lakehouse.
+
+![Trino Cluster Overview](docs/images/02_trino_cluster_overview.jpg)
+*Trino Cluster Overview Web UI displaying active query execution, row throughput, and Metabase SQL queries.*
+
+### 5.2 Metabase Analytical Dashboards
+Metabase (v0.50.28) provides real-time visualization over the Gold analytical marts:
+
+* **Executive System Overview**: Real-time KPI summary (Total Processed Events, Top Active Developers, Total Stars, Active Repositories).
+* **Top Trending Repositories**: Filtered for live, accessible GitHub repositories (excluding deleted/404 repos).
+* **Human vs Bot Activity**: Segregating bot activity (`[bot]`, automation actors) from organic community interactions.
+* **Programming Language Trends**: Daily language adoption, commits, and opened pull requests.
+
+![Metabase Executive Dashboard](docs/images/06_metabase_executive_dashboard.png)
+*Metabase Executive Dashboard showing real-time Lakehouse intelligence, KPI cards, and deep-dive analytical charts.*
+
+![Metabase Developer Work Patterns](docs/images/07_metabase_developer_work_patterns.png)
+*Metabase Developer Work Patterns analysis displaying 24-hour UTC activity curves and Day-of-Week distribution.*
+
+---
+
+## 6. Continuous Realtime Streaming & FIFO Retention
+
+To prevent unbounded storage growth while maintaining fresh data, the Lakehouse incorporates a **7-Day Rolling FIFO Retention** policy and a **Zero-Leak Stream Poller**:
+
+### 6.1 FIFO 7-Day Sliding Window
+- Automatically bounds database storage to the latest 7 active days.
+- When an 8th day is ingested, the oldest date partition is automatically purged across Bronze, Silver, Gold, and Ledger tables.
+- Runs `expire_snapshots(older_than_days=1)` and `remove_orphan_files()` to reclaim physical S3 disk space.
+- Zero-Footprint local disk constraint: Raw `.json.gz` files are purged immediately following Bronze ingestion.
+
+### 6.2 Lightweight Background Poller (`scripts/daemon_stream_poller.py`)
+- Continuously polls GH Archive every 5 minutes using lightweight HTTP `HEAD` requests (~0 MB memory overhead).
+- Spawns `spark-submit` on-demand only when a new hour is published.
+- Terminates the Spark JVM immediately upon completion, returning 100% of driver memory to the host OS and eliminating long-running OOM risks.
+
+---
+
+## 7. Performance Benchmark & Compaction Results
+
+Consolidating micro-batch small files using Iceberg's `rewrite_data_files` procedure dramatically improves Trino query performance:
+
+| Benchmark Query | Description | Before Files | After Files | File Reduction | Before Median | After Median | Latency Improvement |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| `q1_trending_repos` | Top Trending Repositories | 48 | 4 | **-91.7%** | 170.33 ms | 66.50 ms | **-61.0%** |
+| `q2_developer_heatmap`| Developer UTC Heatmap | 48 | 4 | **-91.7%** | 134.10 ms | 50.80 ms | **-62.1%** |
+| `q3_language_trends`  | Language Activity Trends | 48 | 4 | **-91.7%** | 146.10 ms | 57.10 ms | **-60.9%** |
+| `q4_silver_fact`      | Silver Fact Aggregations | 48 | 6 | **-87.5%** | 261.20 ms | 111.10 ms | **-57.5%** |
+
+*Detailed benchmark methodology: [docs/benchmark_report.md](docs/benchmark_report.md) & [docs/benchmark/benchmark_results.csv](docs/benchmark/benchmark_results.csv).*
+
+---
+
+## 8. Testing & Quality Assurance
+
+The codebase includes an extensive automated test suite covering unit transformations, control ledger idempotency, quarantine mechanisms, and Trino vertical slices:
+
+```bash
+# Run all 81 automated tests
+pytest -v
+
+# Run code formatting and lint checks
+ruff check .
+ruff format --check .
+```
+
+```text
+============================= 81 passed in 13.96s =============================
+```
+
+---
+
+## 9. Quickstart Guide
 
 ### 1. Prerequisites
-- Docker & Docker Compose
-- Python 3.12+
+- Docker & Docker Compose (v2.20+)
+- Python 3.10+ (Python 3.12 recommended)
 
 ### 2. Environment Setup
 ```bash
-# Clone and enter repo
+# Clone the repository
+git clone https://github.com/your-org/GitHub-Events-Data-LakeHouse.git
 cd GitHub-Events-Data-LakeHouse
 
-# Setup virtual environment
+# Create Python virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .\.venv\Scripts\Activate.ps1
+source .venv/bin/activate  # On Windows PowerShell: .\.venv\Scripts\Activate.ps1
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Copy environment variables
 cp .env.example .env
 ```
 
-### 3. Start Core Services
+### 3. Launch Stack
 ```bash
-docker compose up -d minio mc iceberg-rest trino spark-master spark-worker
+docker compose up -d
 ```
 
-### 4. Run Vertical Slice Verification
+### 4. Run Backfill or Start Continuous Streaming
 ```bash
-# 1. Download & upload 1 source hour to MinIO Landing
-python spark/utils/downloader.py --source-hour 2024-01-01-0 --fixture tests/fixtures/landing/2024-01-01-0.json.gz
+# Ingest specific date range with 7-day retention
+docker exec lakehouse-spark-master /opt/spark/bin/spark-submit \
+  --jars /opt/spark/work-dir/spark/jars/com.amazonaws_aws-java-sdk-bundle-1.12.262.jar,/opt/spark/work-dir/spark/jars/org.apache.hadoop_hadoop-aws-3.3.4.jar,/opt/spark/work-dir/spark/jars/org.apache.iceberg_iceberg-aws-bundle-1.6.1.jar,/opt/spark/work-dir/spark/jars/org.apache.iceberg_iceberg-spark-runtime-3.5_2.12-1.6.1.jar,/opt/spark/work-dir/spark/jars/org.wildfly.openssl_wildfly-openssl-1.0.7.Final.jar \
+  /opt/spark/work-dir/spark/jobs/pipeline_stream_runner.py --start-date 2026-11-13 --end-date 2026-11-14 --retention-days 7
 
-# 2. Write Iceberg proof table with Spark
-make proof-spark
-
-# 3. Query Iceberg proof table through Trino
-python tests/test_vertical_slice_trino.py
+# Run lightweight streaming poller daemon
+python scripts/daemon_stream_poller.py
 ```
+
+### 5. Access Web Endpoints
+- **Apache Airflow UI:** [http://localhost:8085](http://localhost:8085) (`admin` / `admin123`)
+- **Trino Query UI:** [http://localhost:8082](http://localhost:8082) (`admin`)
+- **Metabase Dashboard:** [http://localhost:3000](http://localhost:3000)
+- **MinIO Console:** [http://localhost:9011](http://localhost:9011) (`admin` / `password123`)
+- **Spark Master UI:** [http://localhost:8088](http://localhost:8088)
+
+---
+
+## 10. Operational Documentation & Runbooks
+
+- [Operational Runbook](docs/runbooks/operational_runbook.md): System lifecycle, CLI commands, and Airflow DAG execution.
+- [Data Quality Guide](docs/runbooks/data_quality_guide.md): Quality gate specifications, anomaly detection, and quarantine handling.
+- [Disaster Recovery Guide](docs/runbooks/disaster_recovery_guide.md): Iceberg Time Travel, snapshot rollback, and idempotent replay.
+- [Metabase Dashboard Configuration](docs/bi/metabase_dashboards.md): Trino connection and analytical SQL queries.
+- [Phase Results Reports](docs/results_report/): Detailed audit reports for Phases 0 through 4.

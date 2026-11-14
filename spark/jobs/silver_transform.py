@@ -351,7 +351,11 @@ def run_silver_transformation(
         # 3. Transform & Upsert silver.fact_commits (PushEvent)
         # -------------------------------------------------------------
         push_df = (
-            bronze_df.filter(F.col("event_type") == "PushEvent")
+            bronze_df.filter(
+                (F.col("event_type") == "PushEvent")
+                & F.col("repo_id").isNotNull()
+                & F.col("actor_id").isNotNull()
+            )
             .withColumn(
                 "parsed_payload", F.from_json("raw_payload", PUSH_PAYLOAD_SCHEMA)
             )
@@ -405,7 +409,11 @@ def run_silver_transformation(
         # 4. Transform & Upsert silver.fact_pull_requests (PullRequestEvent)
         # -------------------------------------------------------------
         pr_df = (
-            bronze_df.filter(F.col("event_type") == "PullRequestEvent")
+            bronze_df.filter(
+                (F.col("event_type") == "PullRequestEvent")
+                & F.col("repo_id").isNotNull()
+                & F.col("actor_id").isNotNull()
+            )
             .withColumn("parsed_payload", F.from_json("raw_payload", PR_PAYLOAD_SCHEMA))
             .select(
                 F.col("event_id"),
@@ -470,6 +478,8 @@ def run_silver_transformation(
         # Note: WatchEvent action 'started' is star. ForkEvent is fork. IssuesEvent is issue.
         eng_raw = bronze_df.filter(
             F.col("event_type").isin("WatchEvent", "ForkEvent", "IssuesEvent")
+            & F.col("repo_id").isNotNull()
+            & F.col("actor_id").isNotNull()
         )
         eng_df = (
             eng_raw.withColumn(
