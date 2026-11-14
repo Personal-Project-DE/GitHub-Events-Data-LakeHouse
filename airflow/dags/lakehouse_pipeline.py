@@ -41,12 +41,12 @@ default_args = {
     max_active_runs=1,  # Strictly prevents overlapping runs across source hours
     params={
         "source_hour": Param(
-            default="2024-01-01-0",
+            default="",
             type="string",
-            description="Explicit source hour in YYYY-MM-DD-H format (defaults to 2024-01-01-0)",
+            description="Explicit source hour in YYYY-MM-DD-H format (empty for auto current hour)",
         ),
         "force": Param(
-            default=True,
+            default=False,
             type="boolean",
             description="Force reprocessing/replay even if already completed",
         ),
@@ -58,11 +58,18 @@ def github_events_lakehouse_pipeline():
     @task
     def resolve_pipeline_params(**context) -> dict[str, str]:
         """Resolves source_hour, date, run_id and force flag from DAG context."""
+        from datetime import timedelta
+
         dag_run = context.get("dag_run")
         conf = dag_run.conf if dag_run else {}
         dag_params = context.get("params") or {}
 
-        explicit_hour = conf.get("source_hour") or dag_params.get("source_hour")
+        explicit_hour = conf.get("source_hour")
+        if not explicit_hour:
+            param_hour = dag_params.get("source_hour")
+            if param_hour and param_hour.strip():
+                explicit_hour = param_hour.strip()
+
         if not explicit_hour:
             logical_date = context.get("logical_date") or context.get(
                 "data_interval_start"
@@ -72,7 +79,9 @@ def github_events_lakehouse_pipeline():
                     f"{logical_date.strftime('%Y-%m-%d')}-{logical_date.hour}"
                 )
             else:
-                explicit_hour = "2024-01-01-0"
+                now_utc = datetime.now(UTC)
+                prev_hour = now_utc - timedelta(hours=1)
+                explicit_hour = f"{prev_hour.strftime('%Y-%m-%d')}-{prev_hour.hour}"
 
         target_date = explicit_hour.rsplit("-", 1)[0]
         run_id = context.get("run_id", "manual_run")
