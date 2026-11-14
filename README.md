@@ -1,6 +1,48 @@
 # GitHub Events Data Lakehouse
 
-An end-to-end local Data Lakehouse processing public GitHub Archive events using **PySpark, Apache Iceberg, MinIO, Trino, Apache Airflow 3.3.2, and Metabase**.
+<p align="center">
+  <a href="https://spark.apache.org/"><img src="https://img.shields.io/badge/PySpark-3.5.3-E25A1C?style=for-the-badge&logo=apachespark&logoColor=white" alt="PySpark 3.5.3" /></a>
+  <a href="https://iceberg.apache.org/"><img src="https://img.shields.io/badge/Apache%20Iceberg-1.6.1-007EC6?style=for-the-badge&logo=apache&logoColor=white" alt="Apache Iceberg 1.6.1" /></a>
+  <a href="https://trino.io/"><img src="https://img.shields.io/badge/Trino-468-DD00A1?style=for-the-badge&logo=trino&logoColor=white" alt="Trino 468" /></a>
+  <a href="https://airflow.apache.org/"><img src="https://img.shields.io/badge/Apache%20Airflow-3.3.2-017CEE?style=for-the-badge&logo=apacheairflow&logoColor=white" alt="Airflow 3.3.2" /></a>
+  <a href="https://min.io/"><img src="https://img.shields.io/badge/MinIO-S3_Storage-C72C48?style=for-the-badge&logo=minio&logoColor=white" alt="MinIO S3" /></a>
+  <a href="https://www.metabase.com/"><img src="https://img.shields.io/badge/Metabase-BI_v0.50-509EE3?style=for-the-badge&logo=metabase&logoColor=white" alt="Metabase v0.50" /></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" /></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12" /></a>
+  <img src="https://img.shields.io/badge/CI%2FCD-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI/CD" />
+  <img src="https://img.shields.io/badge/Tests-81%20Passed-success?style=for-the-badge&logo=pytest&logoColor=white" alt="Tests" />
+</p>
+
+An enterprise-grade, local Medallion Data Lakehouse continuously collecting and processing live public GitHub Archive events using **PySpark 3.5, Apache Iceberg 1.6, Trino 468, MinIO S3, Apache Airflow 3.3.2, and Metabase**.
+
+---
+
+## 🌟 Executive Summary & Live Analytics Showcase
+
+Designed with a production engineering mindset, this Lakehouse ingests streaming JSON dumps, enforces ACID transactions on Object Storage, eliminates small-file fragmentation, and exposes low-latency analytical marts via distributed SQL:
+
+<p align="center">
+  <img src="docs/images/06_metabase_executive_dashboard.png" alt="Metabase Executive Dashboard" width="95%" />
+</p>
+
+> **Key Operational Metrics (Live Verified):**
+> * **20,141+** Real-time processed GitHub events & **11,365+** active human developers tracked.
+> * **91.7% Small-File Reduction** & **61.0% Trino Query Latency Improvement** via Iceberg data file compaction.
+> * **100% Idempotent Replays** backed by a Control Ledger state machine and SCD Type-1 dimensions.
+> * **Zero-Leak Realtime Streaming** with a decoupled lightweight poller and an automated **7-day FIFO Rolling Retention** policy.
+> * **81/81 Automated Tests Passing** across unit transformations, quarantine logic, and Trino vertical slices.
+
+---
+
+## 💡 Key Engineering Highlights & Architectural Decisions
+
+| Challenge / Requirement | Architectural Solution | Production Impact |
+|:---|:---|:---|
+| **ACID on Object Storage** | Implemented **Apache Iceberg REST Catalog** over MinIO S3 columnar Parquet files. | Enables atomic commits, hidden partitioning, schema evolution, and instantaneous metadata queries without S3 listing bottlenecks. |
+| **Small-Files Problem** | Automated scheduled `CALL iceberg.system.rewrite_data_files` compaction to 128 MB target files. | Reduced fragmented hourly Parquet files from 48 down to 4 (**-91.7%**), slashing Trino query latency from 170ms to 66ms (**-61.0%**). |
+| **Idempotency & Replays** | Engineered a `control.ingestion_runs` state machine with Iceberg `MERGE INTO` on `event_id`. | Guarantees zero duplicate records across backfills, hourly replays, and network retries with automated reconciliation audits. |
+| **Storage & Memory Guardrails** | Implemented a **7-Day Rolling FIFO Retention** policy + external zero-leak poller. | Automatically purges data older than 7 days, vacuums orphan S3 files, deletes raw `.json.gz` landing archives immediately, and prevents long-running Spark JVM OOMs. |
+| **Data Quality & Governance** | Multi-stage Quality Gates + dead repository URL probing + bot classification. | Segregates bot activity (`[bot]`, automated CI), quarantines corrupted JSON records, and filters out deleted/404 repositories from trending marts. |
 
 ---
 
@@ -161,9 +203,7 @@ Metabase (v0.50.28) provides real-time visualization over the Gold analytical ma
 * **Top Trending Repositories**: Filtered for live, accessible GitHub repositories (excluding deleted/404 repos).
 * **Human vs Bot Activity**: Segregating bot activity (`[bot]`, automation actors) from organic community interactions.
 * **Programming Language Trends**: Daily language adoption, commits, and opened pull requests.
-
-![Metabase Executive Dashboard](docs/images/06_metabase_executive_dashboard.png)
-*Metabase Executive Dashboard showing real-time Lakehouse intelligence, KPI cards, and deep-dive analytical charts.*
+* **Developer Work Patterns**: 24-hour UTC activity curves and Day-of-Week distribution.
 
 ![Metabase Developer Work Patterns](docs/images/07_metabase_developer_work_patterns.png)
 *Metabase Developer Work Patterns analysis displaying 24-hour UTC activity curves and Day-of-Week distribution.*
