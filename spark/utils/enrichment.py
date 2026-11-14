@@ -258,7 +258,7 @@ def check_repo_liveness(
                 return repo_name, False
             # 429 or 403 on github web: treat as alive to avoid false negative
             return repo_name, True
-        except Exception:
+        except Exception:  # noqa: BLE001
             # Network timeout / intermittent error: do not penalize
             return repo_name, True
 

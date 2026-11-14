@@ -91,8 +91,8 @@ def get_existing_dates(spark: SparkSession) -> list[str]:
         )
         dates = [str(r["metric_date"]) for r in df_dates.collect() if r["metric_date"]]
         if dates:
-            return sorted(list(set(dates)))
-    except Exception:
+            return sorted(set(dates))
+    except Exception:  # noqa: S110, BLE001
         pass
 
     try:
@@ -101,8 +101,8 @@ def get_existing_dates(spark: SparkSession) -> list[str]:
         )
         dates = [str(r["metric_date"]) for r in df_dates.collect() if r["metric_date"]]
         if dates:
-            return sorted(list(set(dates)))
-    except Exception:
+            return sorted(set(dates))
+    except Exception:  # noqa: S110, BLE001
         pass
 
     try:
@@ -110,8 +110,8 @@ def get_existing_dates(spark: SparkSession) -> list[str]:
             "SELECT DISTINCT substring(source_hour, 1, 10) AS metric_date FROM iceberg.control.ingestion_runs ORDER BY metric_date ASC"
         )
         dates = [str(r["metric_date"]) for r in df_dates.collect() if r["metric_date"]]
-        return sorted(list(set(dates)))
-    except Exception:
+        return sorted(set(dates))
+    except Exception:  # noqa: BLE001
         return []
 
 
@@ -150,7 +150,7 @@ def prune_date_from_all_tiers(
         if not dry_run:
             try:
                 spark.sql(stmt)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"  [Warning] Statement failed: {stmt} -> {e}")
 
     if reclaim_storage and not dry_run:
@@ -159,7 +159,7 @@ def prune_date_from_all_tiers(
             try:
                 expire_sql = f"CALL iceberg.system.expire_snapshots(table => '{tbl}', retain_last => 1)"
                 spark.sql(expire_sql)
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 # Table might be empty or not yet have multiple snapshots
                 pass
 

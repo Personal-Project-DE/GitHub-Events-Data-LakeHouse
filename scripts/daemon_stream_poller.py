@@ -58,10 +58,10 @@ def is_hour_in_lakehouse(hour_str: str) -> bool:
         )
         row = cur.fetchone()
         conn.close()
-        if row and row[0] in ("GOLD_COMPLETE", "SILVER_COMPLETE", "BRONZE_COMPLETE"):
-            return True
-        return False
-    except Exception as e:
+        return bool(
+            row and row[0] in ("GOLD_COMPLETE", "SILVER_COMPLETE", "BRONZE_COMPLETE")
+        )
+    except Exception as e:  # noqa: BLE001
         log(f"[Warning] Failed to query Trino: {e}")
         return False
 
@@ -74,7 +74,7 @@ def is_hour_published_on_gharchive(hour_str: str) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return resp.status == 200
-    except Exception:
+    except Exception:  # noqa: BLE001
         return False
 
 
@@ -89,7 +89,7 @@ def run_pipeline_for_hour(date_str: str, hour_int: int):
         "--hours",
         str(hour_int),
     ]
-    ret = subprocess.run(cmd)
+    ret = subprocess.run(cmd, check=False)
     if ret.returncode == 0:
         log(f"[{datetime.datetime.now()}] Successfully processed hour: {hour_str}")
     else:
