@@ -45,7 +45,6 @@ Designed with a production engineering mindset, this Lakehouse ingests streaming
 | **Data Quality & Governance** | Multi-stage Quality Gates + dead repository URL probing + bot classification. | Segregates bot activity (`[bot]`, automated CI), quarantines corrupted JSON records, and filters out deleted/404 repositories from trending marts. |
 
 ---
-
 ## 1. System Architecture & Tech Stack
 
 ```text
