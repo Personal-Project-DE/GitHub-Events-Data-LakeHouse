@@ -33,4 +33,5 @@ Thumbs.db
 
 #Document and result report
 planning/
-docs/
+!docs/
+!docs/**
