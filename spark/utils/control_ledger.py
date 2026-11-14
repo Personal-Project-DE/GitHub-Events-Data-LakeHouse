@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +27,12 @@ def ensure_control_table(spark: SparkSession) -> None:
             error_message STRING
         )
         USING iceberg
+        TBLPROPERTIES (
+            'write.merge.isolation-level' = 'snapshot',
+            'write.update.isolation-level' = 'snapshot',
+            'write.delete.isolation-level' = 'snapshot',
+            'commit.retry.num-retries' = '10'
+        )
         """
     )
 
@@ -73,6 +80,9 @@ def acquire_run_lock(
             )
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")  # noqa: UP017
+    if type(spark).__name__ == "SparkSession":
+        with contextlib.suppress(Exception):
+            spark.sql("REFRESH TABLE iceberg.control.ingestion_runs")
 
     # Upsert control record via MERGE INTO
     merge_sql = f"""
@@ -136,6 +146,10 @@ def advance_run_status(
     else:
         completed_clause = "completed_at = completed_at"
 
+    if type(spark).__name__ == "SparkSession":
+        with contextlib.suppress(Exception):
+            spark.sql("REFRESH TABLE iceberg.control.ingestion_runs")
+
     update_sql = f"""
     UPDATE iceberg.control.ingestion_runs
     SET status = '{new_status}',
@@ -156,6 +170,9 @@ def complete_run(
 ) -> None:
     """Marks the ingestion run as BRONZE_COMPLETE with record stage metrics."""
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")  # noqa: UP017
+    if type(spark).__name__ == "SparkSession":
+        with contextlib.suppress(Exception):
+            spark.sql("REFRESH TABLE iceberg.control.ingestion_runs")
     update_sql = f"""
     UPDATE iceberg.control.ingestion_runs
     SET status = 'BRONZE_COMPLETE',

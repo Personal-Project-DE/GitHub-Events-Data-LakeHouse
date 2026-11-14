@@ -177,13 +177,13 @@ def run_gold_aggregation(
             GROUP BY a.repo_id
         ),
         active_repos AS (
-            SELECT repo_id FROM daily_stars
+            SELECT repo_id FROM daily_stars WHERE repo_id IS NOT NULL
             UNION
-            SELECT repo_id FROM daily_forks
+            SELECT repo_id FROM daily_forks WHERE repo_id IS NOT NULL
             UNION
-            SELECT repo_id FROM daily_prs
+            SELECT repo_id FROM daily_prs WHERE repo_id IS NOT NULL
             UNION
-            SELECT repo_id FROM human_contributors
+            SELECT repo_id FROM human_contributors WHERE repo_id IS NOT NULL
         )
         SELECT
             DATE '{target_date}' AS metric_date,
@@ -206,6 +206,52 @@ def run_gold_aggregation(
         """
 
         trending_df = spark.sql(trending_sql)
+
+        # Quality Gate: Liveness verification for top candidate repositories (exclude 404/deleted)
+        try:
+            from pyspark.sql import functions as F
+
+            from spark.utils.enrichment import check_repo_liveness
+
+            top_candidate_rows = (
+                trending_df.filter(
+                    (F.col("repo_name") != "unknown")
+                    & F.col("repo_name").contains("/")
+                    & (
+                        (F.col("new_stars_count") > 0)
+                        | (F.col("forks_count") > 0)
+                        | (F.col("distinct_human_contributors") > 0)
+                    )
+                )
+                .orderBy(
+                    (
+                        F.col("new_stars_count") * 3
+                        + F.col("forks_count") * 2
+                        + F.col("distinct_human_contributors")
+                    ).desc()
+                )
+                .limit(100)
+                .select("repo_name")
+                .collect()
+            )
+
+            top_candidates = [r["repo_name"] for r in top_candidate_rows]
+            if top_candidates:
+                dead_repos = check_repo_liveness(top_candidates)
+                if dead_repos:
+                    print(
+                        f"[Gold Quality Gate] Filtered out {len(dead_repos)} inaccessible (404) repos from Gold mart: {dead_repos}"
+                    )
+                    trending_df = trending_df.filter(
+                        ~F.col("repo_name").isin(list(dead_repos))
+                    )
+
+            trending_df = trending_df.filter(
+                (F.col("repo_name") != "unknown") & F.col("repo_name").contains("/")
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"[Gold Quality Gate] Warning: Liveness check bypassed: {e}")
+
         trending_df.createOrReplaceTempView("staged_trending_mart")
         count_trending = trending_df.count()
 
@@ -321,13 +367,13 @@ def run_gold_aggregation(
             GROUP BY primary_language
         ),
         active_repos_with_activity AS (
-            SELECT repo_id FROM daily_stars_by_repo
+            SELECT repo_id FROM daily_stars_by_repo WHERE repo_id IS NOT NULL
             UNION
-            SELECT repo_id FROM daily_forks_by_repo
+            SELECT repo_id FROM daily_forks_by_repo WHERE repo_id IS NOT NULL
             UNION
-            SELECT repo_id FROM daily_prs_by_repo
+            SELECT repo_id FROM daily_prs_by_repo WHERE repo_id IS NOT NULL
             UNION
-            SELECT repo_id FROM daily_commits_by_repo
+            SELECT repo_id FROM daily_commits_by_repo WHERE repo_id IS NOT NULL
         ),
         active_repos_by_lang AS (
             SELECT

@@ -111,6 +111,7 @@ def ingest_bronze_hour(
     force: bool = False,
     override_path: str | None = None,
     override_checksum: str | None = None,
+    spark: SparkSession | None = None,
 ) -> dict:
     """
     Executes idempotent Bronze ingestion for a single source hour:
@@ -134,7 +135,10 @@ def ingest_bronze_hour(
     print(f"Source Landing Path: {source_path}")
     print(f"Source SHA-256 Checksum: {source_checksum}")
 
-    spark = get_spark_session(f"BronzeIngest-{source_hour}-{run_id[:8]}")
+    should_stop_spark = False
+    if spark is None:
+        spark = get_spark_session(f"BronzeIngest-{source_hour}-{run_id[:8]}")
+        should_stop_spark = True
 
     try:
         ensure_control_table(spark)
@@ -304,7 +308,27 @@ def ingest_bronze_hour(
             )
         raise
     finally:
-        spark.stop()
+        if should_stop_spark:
+            spark.stop()
+
+
+def run_bronze_ingestion(
+    spark: SparkSession | None = None,
+    source_hour: str = "",
+    run_id: str | None = None,
+    force: bool = False,
+    override_path: str | None = None,
+    override_checksum: str | None = None,
+) -> dict:
+    """Wrapper function matching pipeline and backfill runner convention."""
+    return ingest_bronze_hour(
+        source_hour=source_hour,
+        run_id=run_id,
+        force=force,
+        override_path=override_path,
+        override_checksum=override_checksum,
+        spark=spark,
+    )
 
 
 def main():
