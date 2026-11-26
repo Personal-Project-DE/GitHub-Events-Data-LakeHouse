@@ -47,55 +47,40 @@ Designed with a production engineering mindset, this Lakehouse ingests streaming
 ---
 ## 1. System Architecture & Tech Stack
 
-```text
-       +------------------------------------+
-       |  GH Archive (data.gharchive.org)   |
-       +-----------------+------------------+
-                         | HTTP GET (.json.gz)
-                         v
-       +------------------------------------+
-       |       MinIO Landing Storage        |
-       |  (s3a://lakehouse/landing/...)     |
-       +-----------------+------------------+
-                         |
-                         v
-       +------------------------------------+
-       |   Apache Airflow 3.3.2 Scheduler   |
-       |    - Postgres 17 Metadata Store    |
-       |    - Multi-stage Quality Gates     |
-       +-----------------+------------------+
-                         |
-                         v
-       +------------------------------------+
-       |         PySpark 3.5.3 Engine       |
-       |  - Bronze: Deduplicated Events     |
-       |  - Silver: Dims (SCD1) & Facts     |
-       |  - Gold: 3 Daily Analytical Marts  |
-       |  - Maintenance: Compaction & Sort  |
-       +--------+------------------+--------+
-                |                  |
-      Metadata  |                  | Parquet Data
-                v                  v
-+-----------------------+  +------------------------+
-| Iceberg REST Catalog  |  |   MinIO Warehouse      |
-| (port 8181)           |  | (s3a://lakehouse/wh)   |
-+-----------+-----------+  +-----------+------------+
-            ^                          ^
-            |  Metadata & Data Files   |
-            +-------------+------------+
-                          |
-                          v
-            +---------------------------+
-            |      Trino 468 SQL        |
-            |     (localhost:8082)      |
-            +-------------+-------------+
-                          |
-                          v
-            +---------------------------+
-            |    Metabase (v0.50.28)    |
-            |     (localhost:3000)      |
-            +---------------------------+
-```
+### 1.1 End-to-End Lifecycle Walkthrough (`archify`)
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/01_archify_lifecycle_story-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="docs/diagrams/01_archify_lifecycle_story-light.svg" />
+    <img alt="End-to-End Lakehouse Lifecycle Walkthrough" src="docs/diagrams/01_archify_lifecycle_story-dark.svg" width="100%" />
+  </picture>
+</p>
+
+<details>
+<summary><b>View Full-Resolution Runtime Topology Diagram</b></summary>
+<br />
+<p align="center">
+  <img src="docs/diagrams/01a_archify_architecture.png" alt="Lakehouse Runtime Architecture" width="98%" />
+</p>
+</details>
+
+### 1.2 Codebase Architecture Floorplan (`floorplan`)
+
+Complete repository map across **34 Python modules (5.5k LOC)**, **11 subsystems**, and **59 resolved import/call/data links**:
+
+<p align="center">
+  <img src="docs/diagrams/03_floorplan_codebase_map.png" alt="Codebase Architecture Floorplan" width="98%" />
+</p>
+
+### 1.3 Architecture Diagnosis & 3D Dependency Atlas (`archify`)
+
+Static AST coupling and complexity analysis across **20 production Python modules**, **85 functions**, and **26 inter-file dependencies** (0 hard circular import errors; 1 deferred lazy back-edge in `spark/utils/backfill_runner.py`):
+
+<p align="center">
+  <img src="docs/diagrams/04a_archify_atlas_starmap.png" alt="Archify 2D Radial Star Map Atlas" width="49%" />
+  <img src="docs/diagrams/04b_archify_atlas_3d.png" alt="Archify 3D Dependency Tree Atlas" width="49%" />
+</p>
 
 ### Pinned Versions & Service Endpoints
 
@@ -125,39 +110,15 @@ MinIO provides the S3-compatible storage layer partitioned into two primary name
 
 ## 3. Medallion Data Model
 
-```text
-                        ┌──────────────────────────────────────────────┐
-                        │               LANDING LAYER                  │
-                        │       Immutable .json.gz raw archives        │
-                        └──────────────────────┬───────────────────────┘
-                                               │
-                                               ▼
-                        ┌──────────────────────────────────────────────┐
-                        │                BRONZE LAYER                  │
-                        │   iceberg.bronze.github_events               │
-                        │   Grain: event_id (deduplicated & merged)    │
-                        └──────────────────────┬───────────────────────┘
-                                               │
-                                               ▼
-                        ┌──────────────────────────────────────────────┐
-                        │                SILVER LAYER                  │
-                        │  - Dimensions: dim_users, dim_repositories   │
-                        │  - Metadata: repo_metadata (language cache)  │
-                        │  - Facts: fact_commits, fact_pull_requests,  │
-                        │           fact_engagements                   │
-                        └──────────────────────┬───────────────────────┘
-                                               │
-             ┌─────────────────────────────────┼─────────────────────────────────┐
-             ▼                                 ▼                                 ▼
-┌───────────────────────────────┐ ┌───────────────────────────────┐ ┌───────────────────────────────┐
-│ gold.mart_trending_repos_daily│ │gold.mart_language_trends_daily│ │mart_developer_work_patterns_..│
-│ Grain: (metric_date, repo_id) │ │ Grain: (metric_date, language)│ │Grain: (date, day_of_week, hr) │
-│ - new_stars_count             │ │ - active_repos_count          │ │ - commit_events_count         │
-│ - forks_count                 │ │ - distinct_human_contributors │ │ - pr_events_count             │
-│ - opened / merged_prs_count   │ │ - opened / merged_prs_count   │ │ - distinct_human_developers   │
-│ - distinct_human_contributors │ │ - commits_count               │ │ - total_events_count (No bots)│
-└───────────────────────────────┘ └───────────────────────────────┘ └───────────────────────────────┘
-```
+<p align="center">
+  <img src="docs/diagrams/01b_archify_dataflow.png" alt="Medallion Data Lifecycle — Bronze, Silver, Gold & Governance" width="98%" />
+</p>
+
+| Layer | Iceberg Tables | Grain & Key Guarantees |
+|:---|:---|:---|
+| **Bronze** | `iceberg.bronze.github_events`<br/>`iceberg.bronze.github_events_quarantine` | Grain: `event_id` — SHA-256 checksum verified, malformed payloads routed to quarantine, idempotent `MERGE INTO` deduplication. |
+| **Silver** | `dim_users`, `dim_repositories`, `repo_metadata`<br/>`fact_commits`, `fact_pull_requests`, `fact_engagements` | SCD Type-1 dimensions preserving `first_seen_at`, regex `[bot]` classification, live GitHub 404 probing, and typed event facts. |
+| **Gold** | `mart_trending_repos_daily`<br/>`mart_language_trends_daily`<br/>`mart_developer_work_patterns_daily` | Grains: `(metric_date, repo_id)`, `(metric_date, primary_language)`, `(metric_date, day_of_week, hour_of_day)` — bot-excluded human metrics reconciled via 4 Quality Gates. |
 
 ---
 
@@ -211,7 +172,23 @@ Metabase (v0.50.28) provides real-time visualization over the Gold analytical ma
 
 ## 6. Continuous Realtime Streaming & FIFO Retention
 
-To prevent unbounded storage growth while maintaining fresh data, the Lakehouse incorporates a **7-Day Rolling FIFO Retention** policy and a **Zero-Leak Stream Poller**:
+To prevent unbounded storage growth while maintaining fresh data, Phase 4 upgraded the batch Medallion pipeline into a continuous, self-maintaining Lakehouse (`archify-pr` architectural diff `b80e123...df97250`):
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/02_archify_pr_story-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="docs/diagrams/02_archify_pr_story-light.svg" />
+    <img alt="Phase 4 Architectural Evolution Walkthrough" src="docs/diagrams/02_archify_pr_story-dark.svg" width="100%" />
+  </picture>
+</p>
+
+<details>
+<summary><b>View Static Change-Marked Architecture Diff (Phase 3 to Phase 4)</b></summary>
+<br />
+<p align="center">
+  <img src="docs/diagrams/02_archify_pr_phase4.png" alt="Phase 4 Change-Marked Topology" width="98%" />
+</p>
+</details>
 
 ### 6.1 FIFO 7-Day Sliding Window
 - Automatically bounds database storage to the latest 7 active days.
